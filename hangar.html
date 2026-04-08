@@ -1,0 +1,827 @@
+﻿<!DOCTYPE html>
+<html lang="ru" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ангар | SKYTECH SIMULATOR</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { dark: '#121212', card: '#1A1A1A', primary: '#68BA12', primaryHover: '#7BE015' },
+                    fontFamily: { heading: ['Rajdhani', 'sans-serif'], body: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* Базовые стили */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        h1, h2, h3, h4, .font-heading {
+            font-family: 'Rajdhani', sans-serif;
+            text-transform: uppercase;
+        }
+
+        /* Кнопки и карточки */
+        .btn-glow {
+            background-color: #68BA12;
+            color: #121212;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(104, 186, 18, 0.3);
+        }
+
+            .btn-glow:hover {
+                background-color: #7BE015;
+                box-shadow: 0 0 25px rgba(104, 186, 18, 0.7);
+                transform: translateY(-2px);
+            }
+
+        .build-card {
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+            .build-card:hover {
+                border-color: #68BA12;
+                transform: translateY(-3px);
+                box-shadow: 0 10px 20px rgba(104, 186, 18, 0.1);
+            }
+
+        .create-card {
+            border: 2px dashed #68BA12;
+            color: #68BA12;
+            transition: all 0.2s ease;
+        }
+
+            .create-card:hover {
+                background-color: rgba(104, 186, 18, 0.1);
+                transform: translateY(-3px);
+            }
+
+        /* Анимация заполнения характеристик */
+        .stat-bar-fill {
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .dark ::-webkit-scrollbar-track {
+            background: #121212;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #68BA12;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-primary selection:text-dark bg-gray-50 text-gray-900 dark:bg-[#121212] dark:text-white transition-colors duration-300">
+
+    <div id="toast" class="fixed bottom-5 right-5 z-[99999] transform transition-all duration-300 translate-y-20 opacity-0 bg-primary text-dark font-bold px-6 py-3 rounded-xl shadow-[0_0_20px_rgba(104,186,18,0.4)]">
+        Уведомление
+    </div>
+
+    <header class="fixed w-full top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-[#121212]/85 border-b border-gray-200 dark:border-white/5 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-20">
+            <a href="index.html" class="flex items-center gap-3 cursor-pointer text-gray-500 hover:text-gray-900 dark:hover:text-white font-medium">
+                <i class="fa-solid fa-arrow-left"></i> На главную
+            </a>
+
+            <div class="flex items-center gap-4">
+                <button id="theme-toggle" class="text-gray-500 hover:text-primary transition-colors text-xl"><i class="fa-solid fa-moon dark:hidden"></i><i class="fa-solid fa-sun hidden dark:inline"></i></button>
+
+                <div id="unauth-menu"><button id="login-btn-top" class="text-gray-600 dark:text-white hover:text-primary font-medium transition-colors">Войти</button></div>
+
+                <div id="auth-menu" class="hidden flex items-center gap-4">
+                    <div class="flex items-center gap-2 text-sm bg-gray-200 dark:bg-card px-3 py-1.5 rounded-lg border border-gray-300 dark:border-white/10">
+                        <i class="fa-solid fa-user-astronaut text-primary"></i> <span id="user-display-name" class="font-bold truncate max-w-[100px]">Пилот</span>
+                    </div>
+                    <button id="logout-btn" class="text-gray-500 hover:text-red-500 text-sm font-medium transition-colors" title="Выйти"><i class="fa-solid fa-right-from-bracket"></i></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="main-content-wrapper">
+
+        <div id="dashboard-screen" class="pt-28 pb-20 min-h-screen relative bg-gray-50 dark:bg-dark">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center mb-8 border-b border-gray-200 dark:border-white/10 pb-4">
+                    <h2 class="text-3xl md:text-5xl font-bold font-heading">АНГАР: <span class="text-primary">ВАШИ ДРОНЫ</span></h2>
+                </div>
+
+                <h3 class="text-2xl font-bold font-heading mb-4">Свои сборки</h3>
+
+                <div id="guest-warning" class="hidden bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 text-blue-800 dark:text-blue-300 px-4 py-3 rounded-xl mb-4 text-sm flex items-center gap-3">
+                    <i class="fa-solid fa-circle-info text-lg"></i> Вы находитесь в гостевом режиме. Создайте дрон и войдите в аккаунт, чтобы сохранить его навсегда.
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6 mb-12" id="user-builds-grid"></div>
+
+                <h3 class="text-2xl font-bold font-heading mb-4">Готовые сборки</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6" id="ready-builds-grid"></div>
+            </div>
+        </div>
+
+        <section id="constructor-screen" class="hidden pt-28 pb-20 min-h-screen relative bg-gray-50 dark:bg-dark">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 flex justify-between items-center">
+                <h2 class="text-3xl md:text-5xl font-bold font-heading">ИНЖЕНЕРНЫЙ <span class="text-primary">ОТСЕК</span></h2>
+                <button onclick="window.showDashboard()" class="text-gray-500 hover:text-gray-900 dark:hover:text-white font-medium"><i class="fa-solid fa-arrow-left mr-2"></i>В Ангар</button>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-card rounded-2xl border border-gray-200 dark:border-white/10 flex flex-col lg:flex-row shadow-2xl overflow-hidden min-h-[75vh]">
+
+                    <div class="w-full lg:w-64 bg-gray-100 dark:bg-dark/50 border-r border-gray-200 dark:border-white/10 p-4 flex flex-col gap-2 overflow-y-auto" id="category-list"></div>
+
+                    <div class="flex-1 p-4 lg:p-6 flex flex-col overflow-hidden">
+                        <h3 class="text-2xl font-heading font-bold mb-4" id="category-title">Выберите деталь</h3>
+                        <div class="overflow-x-auto flex-1">
+                            <table class="w-full text-left border-collapse min-w-[500px]">
+                                <thead>
+                                    <tr class="border-b border-gray-200 dark:border-white/10 text-gray-500 text-sm">
+                                        <th class="py-3 px-4 font-medium">Деталь</th>
+                                        <th class="py-3 px-4 font-medium">Спецификация</th>
+                                        <th class="py-3 px-4 font-medium">Вес</th>
+                                        <th class="py-3 px-4 font-medium">Цена</th>
+                                        <th class="py-3 px-4 font-medium text-right">Действие</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="items-table" class="text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="w-full lg:w-96 bg-gray-100 dark:bg-[#151515] border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-white/10 flex flex-col relative z-10">
+                        <div class="p-6 flex-1 flex flex-col overflow-y-auto">
+                            <h3 class="text-2xl font-heading font-bold mb-4 text-primary uppercase">Телеметрия & Сборка</h3>
+                            <input type="text" id="build-name-input" class="w-full bg-white dark:bg-dark border border-gray-300 dark:border-white/20 rounded-lg px-3 py-3 text-gray-900 dark:text-white focus:border-primary text-sm font-bold mb-6 shadow-sm" placeholder="Название чертежа...">
+
+                            <div class="mb-6">
+                                <h4 class="text-xs uppercase tracking-wider text-gray-500 font-bold mb-3 border-b border-gray-200 dark:border-white/10 pb-2">Установленные модули</h4>
+                                <div id="build-summary" class="space-y-2 text-sm max-h-[200px] overflow-y-auto pr-2"></div>
+                            </div>
+
+                            <div class="mt-auto">
+                                <h4 class="text-xs uppercase tracking-wider text-gray-500 font-bold mb-4 border-b border-gray-200 dark:border-white/10 pb-2">Анализ характеристик</h4>
+
+                                <div class="mb-4">
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-gray-600 dark:text-gray-400">ОБЩИЙ ВЕС</span><span id="stat-val-weight">0 г</span></div>
+                                    <div class="h-2 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden"><div id="bar-weight" class="h-full bg-orange-500 stat-bar-fill rounded-full" style="width: 0%"></div></div>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-gray-600 dark:text-gray-400">МАКС. ТЯГА (x4)</span><span id="stat-val-thrust">0 г</span></div>
+                                    <div class="h-2 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden"><div id="bar-thrust" class="h-full bg-blue-500 stat-bar-fill rounded-full" style="width: 0%"></div></div>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-gray-600 dark:text-gray-400" title="Thrust to Weight Ratio">ТЯГОВООРУЖЕННОСТЬ</span><span id="stat-val-twr">0.00:1</span></div>
+                                    <div class="h-2 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden"><div id="bar-twr" class="h-full bg-primary stat-bar-fill rounded-full" style="width: 0%"></div></div>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-gray-600 dark:text-gray-400">ПРОЧНОСТЬ РАМЫ</span><span id="stat-val-hp">0 HP</span></div>
+                                    <div class="h-2 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden"><div id="bar-hp" class="h-full bg-red-500 stat-bar-fill rounded-full" style="width: 0%"></div></div>
+                                </div>
+                                <div class="mb-6">
+                                    <div class="flex justify-between text-xs font-bold mb-1"><span class="text-gray-600 dark:text-gray-400">КАЧЕСТВО КАМЕРЫ</span><span id="stat-val-cam">0 / 10</span></div>
+                                    <div class="h-2 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden"><div id="bar-cam" class="h-full bg-purple-500 stat-bar-fill rounded-full" style="width: 0%"></div></div>
+                                </div>
+                                <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-white/10">
+                                    <span class="font-heading font-bold text-lg text-gray-500">ИТОГО:</span><span id="stat-price" class="font-heading font-bold text-2xl text-primary">$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-6 bg-white dark:bg-[#1A1A1A] border-t border-gray-200 dark:border-white/10 shrink-0 space-y-3">
+                            <button id="btn-share" class="w-full py-3 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-300 dark:border-white/10 transition-colors font-bold text-sm flex justify-center items-center gap-2 shadow-sm">
+                                <i class="fa-solid fa-share-nodes"></i> ПОДЕЛИТЬСЯ ЧЕРТЕЖОМ
+                            </button>
+                            <button id="btn-save" class="w-full py-3 rounded-xl btn-glow font-bold flex justify-center items-center gap-2 tracking-wide">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> <span id="btn-save-text">СОХРАНИТЬ</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="auth-modal" class="fixed inset-0 bg-gray-900/80 dark:bg-black/80 backdrop-blur-md z-[9999] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-primary/30 p-8 rounded-2xl w-full max-w-md relative shadow-2xl">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            <h3 class="text-2xl font-bold font-heading mb-2 text-center" id="auth-title">ВХОД В СИСТЕМУ</h3>
+            <p class="text-sm text-center text-gray-500 mb-6" id="auth-subtitle">Авторизуйтесь, чтобы сохранить дрон</p>
+            <div class="space-y-4">
+                <div><label class="block text-sm text-gray-500 mb-1" id="login-label">Email или Логин</label><input type="text" id="auth-login-input" class="w-full bg-gray-50 dark:bg-dark border border-gray-300 dark:border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-primary text-sm"></div>
+                <div id="register-username-container" class="hidden"><label class="block text-sm text-gray-500 mb-1">Придумайте Логин</label><input type="text" id="auth-register-username" class="w-full bg-gray-50 dark:bg-dark border border-gray-300 dark:border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-primary text-sm"></div>
+                <div><label class="block text-sm text-gray-500 mb-1">Пароль</label><input type="password" id="auth-password" class="w-full bg-gray-50 dark:bg-dark border border-gray-300 dark:border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-primary text-sm"></div>
+                <p id="auth-error" class="text-red-500 text-sm hidden text-center bg-red-50 dark:bg-red-500/10 py-2 rounded"></p>
+                <button id="auth-submit-btn" class="w-full btn-glow py-3 rounded-lg font-bold mt-2 text-dark text-sm">ВОЙТИ</button>
+            </div>
+            <div class="mt-6 text-center text-sm text-gray-500 border-t border-gray-200 dark:border-white/10 pt-4">
+                <span id="auth-switch-text">Нет аккаунта?</span> <button id="auth-switch-btn" class="text-primary hover:underline font-medium ml-1">Зарегистрироваться</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+
+            // --- 1. БАЗА ДАННЫХ ДЕТАЛЕЙ (В будущем можно вынести в отдельный JSON) ---
+            const dbParts = {
+                "Frames": [
+                    { "id": 1, "name": "PBR Carbon X5 Racing", "weight_g": 115.00, "price": 35.00, "durability_hp": 80, "aerodynamic_drag": 1.40, "specs": "5.0 inch" },
+                    { "id": 2, "name": "Cobalt Freestyle 5 V2", "weight_g": 145.00, "price": 55.00, "durability_hp": 150, "aerodynamic_drag": 1.15, "specs": "5.0 inch" },
+                    { "id": 3, "name": "Neon Pink Skeletal X5", "weight_g": 85.00, "price": 38.00, "durability_hp": 60, "aerodynamic_drag": 1.00, "specs": "5.0 inch" },
+                    { "id": 4, "name": "Titan LR7 Tubular", "weight_g": 195.00, "price": 65.00, "durability_hp": 120, "aerodynamic_drag": 1.35, "specs": "7.0 inch" }
+                ],
+                "Motors": [
+                    { "id": 1, "name": "PDM Racing Spec-R 2306", "weight_g": 30.0, "price": 12.50, "max_thrust_g": 950, "specs": "2450KV" },
+                    { "id": 2, "name": "BlackOps 2207 Edition", "weight_g": 36.5, "price": 24.00, "max_thrust_g": 1480, "specs": "2400KV" },
+                    { "id": 3, "name": "Shadow 2004 Ultralight", "weight_g": 16.5, "price": 16.50, "max_thrust_g": 850, "specs": "3100KV" },
+                    { "id": 4, "name": "RotoMax 2806.5 Long Range", "weight_g": 48.0, "price": 28.50, "max_thrust_g": 1950, "specs": "1300KV" }
+                ],
+                "Propellers": [
+                    { "id": 1, "name": "Dalprop Cyclone T5045C", "weight_g": 4.0, "price": 2.99, "thrust_efficiency_modifier": 0.95, "specs": "5.0 inch, P4.5" },
+                    { "id": 2, "name": "HQProp Ethix S5", "weight_g": 4.5, "price": 4.50, "thrust_efficiency_modifier": 1.08, "specs": "5.0 inch, P4.3" },
+                    { "id": 3, "name": "AeroNautic 5125 Bi-Blade", "weight_g": 3.0, "price": 2.99, "thrust_efficiency_modifier": 0.85, "specs": "5.1 inch, P2.5" },
+                    { "id": 4, "name": "Gemfan 7040 Tri-Blade", "weight_g": 9.5, "price": 5.99, "thrust_efficiency_modifier": 1.25, "specs": "7.0 inch, P4.0" }
+                ],
+                "FlightControllers": [
+                    { "id": 1, "name": "Omnibus F4 V3 SD", "weight_g": 7.0, "price": 25.00, "specs": "STM32F405" },
+                    { "id": 2, "name": "Holybro Kakute F7 HDV", "weight_g": 8.0, "price": 45.00, "specs": "STM32F745" },
+                    { "id": 4, "name": "Matek H743-WLITE", "weight_g": 9.0, "price": 59.00, "specs": "STM32H743" }
+                ],
+                "ESCs": [
+                    { "id": 1, "name": "RacerStar REV35 35A 4-in-1", "weight_g": 12.0, "price": 22.00, "specs": "35A 4S" },
+                    { "id": 2, "name": "Tekko32 F3 50A 4-in-1", "weight_g": 14.5, "price": 55.00, "specs": "50A 6S" },
+                    { "id": 4, "name": "Foxeer Reaper 65A 4-in-1", "weight_g": 16.0, "price": 65.00, "specs": "65A 6S" }
+                ],
+                "PDBs": [
+                    { "id": 1, "name": "Matek Systems PDB-XT60", "weight_g": 9.0, "price": 8.50, "specs": "Max 100A" },
+                    { "id": 2, "name": "Matek Systems HUB-OSD X", "weight_g": 11.0, "price": 12.00, "specs": "Max 140A" },
+                    { "id": 4, "name": "LongRange Pro PDB 6S", "weight_g": 12.5, "price": 14.50, "specs": "Max 160A" }
+                ],
+                "Receivers": [
+                    { "id": 1, "name": "Basic 2.4GHz RX", "weight_g": 2.5, "price": 12.00, "specs": "2.4GHz SBUS" },
+                    { "id": 2, "name": "TBS Crossfire Nano RX", "weight_g": 2.2, "price": 24.99, "specs": "915MHz CRSF" },
+                    { "id": 4, "name": "TBS Crossfire Diversity", "weight_g": 4.5, "price": 34.99, "specs": "915MHz CRSF" }
+                ],
+                "Batteries": [
+                    { "id": 1, "name": "Budget 4S Lipo Pack", "weight_g": 130, "price": 18.00, "specs": "4S 1200mAh" },
+                    { "id": 2, "name": "Turnigy BluePack 4S HD", "weight_g": 210, "price": 38.50, "specs": "4S 1800mAh" },
+                    { "id": 4, "name": "LR Pro 6S Li-Ion Pack", "weight_g": 450, "price": 60.00, "specs": "6S 4000mAh" }
+                ],
+                "Cameras": [
+                    { "id": 1, "name": "Budget Micro Cam", "weight_g": 6.50, "price": 15.00, "specs": "800TVL", "image_quality_score": 5 },
+                    { "id": 2, "name": "Foxeer T-Rex Micro", "weight_g": 8.6, "price": 34.90, "specs": "1500TVL", "image_quality_score": 8 },
+                    { "id": 4, "name": "Caddx Ratel 2 Pro", "weight_g": 7.0, "price": 42.00, "specs": "1200TVL", "image_quality_score": 10 }
+                ]
+            };
+
+            // Словари для красивого отображения меню
+            const categoryNames = {
+                "Frames": "Рама", "Motors": "Моторы (x4)", "Propellers": "Пропеллеры (x4)",
+                "FlightControllers": "Контроллер", "ESCs": "Регуляторы", "PDBs": "Питание",
+                "Receivers": "Приемник", "Batteries": "Батарея", "Cameras": "Камера"
+            };
+
+            // Готовые базовые сборки
+            const readyBuilds = [
+                {
+                    id: 'bp1', name: "PBR Street Racer (Ver 1)", desc: "PBR Carbon X5, PDM Spec-R 2306, Dalprop Cyclone, Budget Micro Cam",
+                    build: { Frames: dbParts.Frames[0], Motors: dbParts.Motors[0], Propellers: dbParts.Propellers[0], FlightControllers: dbParts.FlightControllers[0], ESCs: dbParts.ESCs[0], PDBs: dbParts.PDBs[0], Receivers: dbParts.Receivers[0], Batteries: dbParts.Batteries[0], Cameras: dbParts.Cameras[0] }
+                },
+                {
+                    id: 'bp2', name: "FPV Field Drone (Ver 2)", desc: "Cobalt Freestyle 5 V2, BlackOps 2207, HQProp Ethix S5, Foxeer T-Rex",
+                    build: { Frames: dbParts.Frames[1], Motors: dbParts.Motors[1], Propellers: dbParts.Propellers[1], FlightControllers: dbParts.FlightControllers[1], ESCs: dbParts.ESCs[1], PDBs: dbParts.PDBs[1], Receivers: dbParts.Receivers[1], Batteries: dbParts.Batteries[1], Cameras: dbParts.Cameras[1] }
+                },
+                {
+                    id: 'bp3', name: "FPV Longrange Drone (Ver 3)", desc: "Titan LR7 Tubular, RotoMax 2806.5, Gemfan 7040, Caddx Ratel 2",
+                    build: { Frames: dbParts.Frames[3], Motors: dbParts.Motors[3], Propellers: dbParts.Propellers[3], FlightControllers: dbParts.FlightControllers[2], ESCs: dbParts.ESCs[2], PDBs: dbParts.PDBs[2], Receivers: dbParts.Receivers[2], Batteries: dbParts.Batteries[2], Cameras: dbParts.Cameras[2] }
+                }
+            ];
+
+            // --- 2. ГЛОБАЛЬНОЕ СОСТОЯНИЕ (Переменные) ---
+            let currentBuild = {};              // Текущий собранный дрон в конструкторе
+            let activeCategory = "Frames";      // Активная вкладка деталей
+            let currentBuildId = null;          // ID сборки (если редактируем существующую)
+            let currentUserDbId = null;         // ID залогиненного пользователя
+
+            // --- 3. UI И НАВИГАЦИЯ ---
+
+            // Тема (Светлая/Темная)
+            const htmlElement = document.documentElement;
+            if (localStorage.getItem('theme') === 'light') htmlElement.classList.remove('dark');
+
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                htmlElement.classList.toggle('dark');
+                localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+            });
+
+            // Всплывающие уведомления
+            window.showToast = (msg) => {
+                const toast = document.getElementById('toast');
+                toast.innerText = msg;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+            };
+
+            // Переключение между Дашбордом (Ангаром) и Конструктором
+            const dashboardScreen = document.getElementById('dashboard-screen');
+            const constructorScreen = document.getElementById('constructor-screen');
+
+            window.showDashboard = () => {
+                constructorScreen.classList.add('hidden');
+                dashboardScreen.classList.remove('hidden');
+                window.scrollTo(0, 0);
+                loadUserBuilds();
+            };
+
+            // Открыть конструктор для создания/редактирования сборки
+            window.openBuilder = (buildData = {}, buildId = null, buildName = "") => {
+                dashboardScreen.classList.add('hidden');
+                constructorScreen.classList.remove('hidden');
+                window.scrollTo(0, 0);
+
+                // Копируем данные, чтобы не менять оригинал, пока не сохранили
+                currentBuild = JSON.parse(JSON.stringify(buildData));
+                currentBuildId = buildId;
+
+                document.getElementById('build-name-input').value = buildName;
+                document.getElementById('btn-save-text').innerText = buildId ? "ОБНОВИТЬ" : "СОХРАНИТЬ";
+
+                renderCategories();
+                renderItems();
+                renderSummary();
+            };
+            window.createNewBuild = () => { window.openBuilder({}, null, "Новая сборка"); };
+
+
+            // --- 4. SUPABASE: АВТОРИЗАЦИЯ И СЕССИЯ ---
+            const supabase = window.supabase.createClient('https://ihsezsksmqrbhairgbsw.supabase.co', 'sb_publishable_kQ7Sevg_ArtX66DomzqLsw_PakiXG1A');
+
+            // Проверка, залогинен ли пользователь (вызывается при старте)
+            async function checkSession() {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    document.getElementById('unauth-menu').classList.add('hidden');
+                    document.getElementById('auth-menu').classList.remove('hidden');
+                    document.getElementById('guest-warning').classList.add('hidden'); // Прячем плашку гостя
+
+                    // Запрашиваем инфу профиля
+                    const { data: profile } = await supabase.from('profiles').select('user_id, username').eq('email', session.user.email).single();
+                    if (profile) {
+                        document.getElementById('user-display-name').innerText = profile.username;
+                        currentUserDbId = profile.user_id;
+                    }
+                } else {
+                    document.getElementById('unauth-menu').classList.remove('hidden');
+                    document.getElementById('auth-menu').classList.add('hidden');
+                    document.getElementById('guest-warning').classList.remove('hidden'); // Показываем плашку гостя
+                    currentUserDbId = null;
+                }
+
+                // Загружаем сборки (если гость - будет просто кнопка "Создать")
+                loadUserBuilds();
+            }
+
+            // Кнопка выхода
+            document.getElementById('logout-btn').addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                await checkSession(); // Проверяем сессию (сбросит переменные)
+                window.showDashboard(); // Возвращаем в Дашборд
+                window.showToast("Вы вышли из аккаунта");
+            });
+
+            // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+            initDashboardReadyBuilds(); // Отрисовываем базовые чертежи (они статичны)
+            await checkSession();       // Проверяем сессию
+            checkUrlForSharedBuild();   // Проверяем ссылку (вдруг нам скинули сборку)
+
+            // Логика модалки логина
+            const authModal = document.getElementById('auth-modal');
+            const openModal = () => { authModal.classList.remove('hidden'); };
+            document.getElementById('login-btn-top').addEventListener('click', openModal);
+            document.getElementById('close-modal-btn').addEventListener('click', () => authModal.classList.add('hidden'));
+
+            let isLoginMode = true;
+            document.getElementById('auth-switch-btn').addEventListener('click', () => {
+                isLoginMode = !isLoginMode;
+                document.getElementById('auth-title').innerText = isLoginMode ? 'ВХОД В СИСТЕМУ' : 'РЕГИСТРАЦИЯ';
+                document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'ВОЙТИ' : 'СОЗДАТЬ АККАУНТ';
+                document.getElementById('auth-switch-text').innerText = isLoginMode ? 'Нет аккаунта?' : 'Уже есть аккаунт?';
+                document.getElementById('auth-switch-btn').innerText = isLoginMode ? 'Зарегистрироваться' : 'Войти';
+                document.getElementById('register-username-container').classList.toggle('hidden', isLoginMode);
+                document.getElementById('login-label').innerText = isLoginMode ? "Email или Логин" : "Email";
+                document.getElementById('auth-error').classList.add('hidden');
+            });
+
+            document.getElementById('auth-submit-btn').addEventListener('click', async () => {
+                const loginOrEmail = document.getElementById('auth-login-input').value.trim();
+                const password = document.getElementById('auth-password').value;
+                const username = document.getElementById('auth-register-username').value.trim();
+                const errorEl = document.getElementById('auth-error');
+
+                if (!loginOrEmail || !password) return;
+                document.getElementById('auth-submit-btn').disabled = true;
+
+                try {
+                    if (isLoginMode) {
+                        let targetEmail = loginOrEmail;
+                        if (!loginOrEmail.includes('@')) {
+                            const { data: p } = await supabase.from('profiles').select('email').eq('username', loginOrEmail).single();
+                            if (p) targetEmail = p.email;
+                        }
+                        const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
+                        if (error) throw error;
+                    } else {
+                        const { error: authErr } = await supabase.auth.signUp({ email: loginOrEmail, password });
+                        if (authErr) throw authErr;
+                        const generatedBigIntId = Math.floor(Math.random() * 900000000) + 100000000;
+                        await supabase.from('profiles').insert([{ user_id: generatedBigIntId, email: loginOrEmail, username: username }]);
+                        await supabase.auth.signInWithPassword({ email: loginOrEmail, password });
+                    }
+                    authModal.classList.add('hidden');
+                    await checkSession();
+                    window.showToast("Успешный вход!");
+                } catch (e) {
+                    errorEl.innerText = "Ошибка: " + e.message;
+                    errorEl.classList.remove('hidden');
+                } finally {
+                    document.getElementById('auth-submit-btn').disabled = false;
+                }
+            });
+
+
+            // --- 5. ДАШБОРД: ЗАГРУЗКА И ОТРИСОВКА СБОРОК ---
+
+            // Отрисовка базовых сборок (вызывается 1 раз)
+            function initDashboardReadyBuilds() {
+                const readyGrid = document.getElementById('ready-builds-grid');
+                readyGrid.innerHTML = '';
+
+                readyBuilds.forEach(rb => {
+                    const card = document.createElement('div');
+                    card.className = "build-card bg-white dark:bg-card border border-gray-200 dark:border-white/10 rounded-xl p-6 cursor-pointer flex flex-col h-full shadow-sm";
+                    card.innerHTML = `
+                            <h4 class="font-bold font-heading text-xl text-primary mb-2">${rb.name}</h4>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-4">${rb.desc}</p>
+                        `;
+                    card.onclick = () => window.openBuilder(rb.build, null, rb.name + " (Копия)");
+                    readyGrid.appendChild(card);
+                });
+            }
+
+            // Загрузка личных сборок юзера
+            async function loadUserBuilds() {
+                const grid = document.getElementById('user-builds-grid');
+                // Кнопка создания висит всегда
+                grid.innerHTML = `
+                        <div onclick="window.createNewBuild()" class="create-card rounded-xl p-6 flex flex-col justify-center items-center cursor-pointer min-h-[220px] bg-white/50 dark:bg-transparent">
+                            <i class="fa-solid fa-plus text-6xl mb-4"></i>
+                            <span class="font-bold text-lg font-heading">СОЗДАТЬ СБОРКУ</span>
+                        </div>
+                    `;
+
+                // Если юзер не залогинен, на этом прерываемся (он видит только кнопку "Создать")
+                if (!currentUserDbId) return;
+
+                try {
+                    const { data: builds } = await supabase.from('user_assemblies').select('*').eq('user_id', currentUserDbId).order('created_at', { ascending: false });
+                    if (builds) {
+                        builds.forEach(b => {
+                            // Восстанавливаем сборку по ID деталей
+                            const buildObj = {};
+                            if (b.frame_id) buildObj.Frames = dbParts.Frames.find(x => x.id === b.frame_id);
+                            if (b.motor_id) buildObj.Motors = dbParts.Motors.find(x => x.id === b.motor_id);
+                            if (b.prop_id) buildObj.Propellers = dbParts.Propellers.find(x => x.id === b.prop_id);
+                            if (b.fc_id) buildObj.FlightControllers = dbParts.FlightControllers.find(x => x.id === b.fc_id);
+                            if (b.esc_id) buildObj.ESCs = dbParts.ESCs.find(x => x.id === b.esc_id);
+                            if (b.pdb_id) buildObj.PDBs = dbParts.PDBs.find(x => x.id === b.pdb_id);
+                            if (b.rx_id) buildObj.Receivers = dbParts.Receivers.find(x => x.id === b.rx_id);
+                            if (b.battery_id) buildObj.Batteries = dbParts.Batteries.find(x => x.id === b.battery_id);
+                            if (b.camera_id) buildObj.Cameras = dbParts.Cameras.find(x => x.id === b.camera_id);
+
+                            const card = document.createElement('div');
+                            card.className = "build-card relative bg-white dark:bg-card border border-gray-200 dark:border-white/10 rounded-xl p-6 cursor-pointer flex flex-col min-h-[220px] shadow-sm";
+
+                            // Формируем описание из первых деталей
+                            let desc = [];
+                            if (buildObj.Frames) desc.push(buildObj.Frames.name);
+                            if (buildObj.Motors) desc.push(buildObj.Motors.name);
+
+                            card.innerHTML = `
+                                    <h4 class="font-bold font-heading text-xl text-gray-900 dark:text-white mb-2 line-clamp-2 pr-6">${b.custom_name || 'Безымянный дрон'}</h4>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-4 leading-relaxed">${desc.join(', ') || 'Пустая сборка'}</p>
+                                    <button class="delete-btn absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-trash-can"></i></button>
+                                `;
+
+                            card.onclick = () => window.openBuilder(buildObj, b.user_assembly_id, b.custom_name);
+                            card.querySelector('.delete-btn').onclick = async (e) => {
+                                e.stopPropagation();
+                                if (confirm("Удалить этот чертеж?")) {
+                                    await supabase.from('user_assemblies').delete().eq('user_assembly_id', b.user_assembly_id);
+                                    loadUserBuilds();
+                                    window.showToast("Удалено");
+                                }
+                            };
+                            grid.appendChild(card);
+                        });
+                    }
+                } catch (e) { console.error("Ошибка загрузки", e); }
+            }
+
+
+            // --- 6. КОНСТРУКТОР: ЛОГИКА СБОРКИ И ХАРАКТЕРИСТИК ---
+
+            // Отрисовка списка вкладок (Рама, Моторы и тд)
+            function renderCategories() {
+                const list = document.getElementById('category-list');
+                list.innerHTML = '';
+
+                for (const cat in categoryNames) {
+                    const btn = document.createElement('button');
+                    const isActive = activeCategory === cat;
+                    btn.className = `text-left px-4 py-3 rounded-xl transition-all font-medium border ${isActive ? 'bg-white dark:bg-white/10 text-primary border-primary/30 shadow-sm' : 'hover:bg-gray-200 dark:hover:bg-white/5 border-transparent text-gray-700 dark:text-gray-300'} flex items-center text-sm lg:text-base`;
+
+                    const isSelected = currentBuild[cat] ? '<i class="fa-solid fa-check text-primary mr-3 text-sm"></i>' : '<i class="fa-solid fa-circle text-gray-400 dark:text-gray-600 mr-3 text-[8px] opacity-50"></i>';
+                    btn.innerHTML = `${isSelected} <span class="truncate">${categoryNames[cat]}</span>`;
+                    btn.onclick = () => {
+                        activeCategory = cat;
+                        renderCategories();
+                        renderItems();
+                    };
+                    list.appendChild(btn);
+                }
+            }
+
+            // Отрисовка списка деталей в выбранной вкладке
+            function renderItems() {
+                document.getElementById('category-title').innerText = `${categoryNames[activeCategory]}`;
+                const tbody = document.getElementById('items-table');
+                tbody.innerHTML = '';
+
+                let itemsToShow = dbParts[activeCategory];
+
+                // ПРАВИЛА СОВМЕСТИМОСТИ:
+                // Правило: ESC привязан к раме. Для 3й рамы ESC вообще встроен.
+                if (activeCategory === 'ESCs') {
+                    const currentFrameId = currentBuild.Frames ? currentBuild.Frames.id : null;
+                    if (currentFrameId === 3) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-500 font-bold bg-white/5 rounded-xl">ESC встроен в раму. Выбор не требуется.</td></tr>';
+                        return;
+                    }
+                    if (currentFrameId) {
+                        itemsToShow = itemsToShow.filter(e => e.id === currentFrameId);
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-500 font-bold bg-white/5 rounded-xl">Сначала выберите раму.</td></tr>';
+                        return;
+                    }
+                }
+
+                // Правило: 4-я камера встает только на 4-ю раму
+                if (activeCategory === 'Cameras') {
+                    const currentFrameId = currentBuild.Frames ? currentBuild.Frames.id : null;
+                    if (currentFrameId !== 4) itemsToShow = itemsToShow.filter(c => c.id !== 4);
+                }
+
+                // Рендер деталей
+                itemsToShow.forEach(item => {
+                    const isSelected = currentBuild[activeCategory] && currentBuild[activeCategory].id === item.id;
+                    const tr = document.createElement('tr');
+                    tr.className = `border-b border-gray-200 dark:border-white/5 transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`;
+
+                    tr.innerHTML = `
+                            <td class="py-4 px-4 font-bold ${isSelected ? 'text-primary' : 'text-gray-900 dark:text-white'}">${item.name}</td>
+                            <td class="py-4 px-4 text-gray-500 max-w-[150px] truncate" title="${item.specs}">${item.specs || '-'}</td>
+                            <td class="py-4 px-4 whitespace-nowrap">${item.weight_g.toFixed(1)} г</td>
+                            <td class="py-4 px-4 whitespace-nowrap">$${item.price.toFixed(2)}</td>
+                            <td class="py-4 px-4 text-right">
+                                <button class="px-4 py-2 rounded-lg font-bold text-xs transition-all ${isSelected ? 'bg-primary text-dark shadow-sm' : 'bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-800 dark:text-white'}">
+                                    ${isSelected ? '<i class="fa-solid fa-check mr-1"></i> СТОИТ' : 'ВЗЯТЬ'}
+                                </button>
+                            </td>
+                        `;
+
+                    tr.querySelector('button').onclick = () => {
+                        // Сброс зависимых деталей при смене рамы
+                        if (activeCategory === 'Frames' && currentBuild.Frames && currentBuild.Frames.id !== item.id) {
+                            delete currentBuild.ESCs;
+                            if (item.id !== 4 && currentBuild.Cameras && currentBuild.Cameras.id === 4) {
+                                delete currentBuild.Cameras;
+                            }
+                        }
+
+                        currentBuild[activeCategory] = item;
+                        renderCategories();
+                        renderItems();
+                        renderSummary();
+                    };
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Пересчет характеристик (ТТХ) и отрисовка полосок
+            function renderSummary() {
+                const summary = document.getElementById('build-summary');
+                summary.innerHTML = '';
+
+                let weight = 0, price = 0, motorThrust = 0, propModifier = 1, durability = 0, camScore = 0;
+
+                for (const cat in categoryNames) {
+                    const item = currentBuild[cat];
+                    if (item) {
+                        // Моторы и пропеллеры умножаем на 4 (у нас же квадрокоптер!)
+                        const multiplier = (cat === 'Motors' || cat === 'Propellers') ? 4 : 1;
+
+                        weight += item.weight_g * multiplier;
+                        price += item.price * multiplier;
+
+                        if (cat === 'Motors') motorThrust += (item.max_thrust_g || 0) * 4;
+                        if (cat === 'Propellers') propModifier = item.thrust_efficiency_modifier || 1;
+                        if (cat === 'Frames') durability = item.durability_hp || 0;
+                        if (cat === 'Cameras') camScore = item.image_quality_score || 0;
+
+                        const el = document.createElement('div');
+                        el.className = "flex justify-between items-center bg-white dark:bg-dark p-2.5 rounded border border-gray-200 dark:border-white/5 shadow-sm";
+                        el.innerHTML = `
+                                <div class="truncate mr-2">
+                                    <span class="text-[9px] uppercase tracking-wider text-primary block">${categoryNames[cat]}</span>
+                                    <span class="text-gray-900 dark:text-white font-medium">${item.name}</span>
+                                </div>
+                                <button class="text-gray-400 hover:text-red-500 w-8 h-8 rounded flex items-center justify-center transition-colors">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            `;
+                        el.querySelector('button').onclick = () => { delete currentBuild[cat]; renderCategories(); renderItems(); renderSummary(); };
+                        summary.appendChild(el);
+                    }
+                }
+
+                // Фикс: если рама 3, пишем что ESC встроен
+                if (currentBuild.Frames && currentBuild.Frames.id === 3 && !currentBuild.ESCs) {
+                    const el = document.createElement('div');
+                    el.className = "flex justify-between items-center bg-primary/5 p-2.5 rounded border border-primary/20";
+                    el.innerHTML = `
+                            <div class="truncate mr-2">
+                                <span class="text-[9px] uppercase tracking-wider text-primary block">Регуляторы</span>
+                                <span class="text-gray-900 dark:text-white font-medium italic">Встроен в плату</span>
+                            </div>
+                         `;
+                    summary.appendChild(el);
+                }
+
+                if (Object.keys(currentBuild).length === 0) summary.innerHTML = '<div class="text-center py-4 text-gray-400 italic text-xs">Ничего не установлено</div>';
+
+                // Итоговая физика: тяга с учетом винтов + TWR (Тяга к Весу)
+                const finalThrust = motorThrust * propModifier;
+                const twr = weight > 0 && finalThrust > 0 ? (finalThrust / weight).toFixed(2) : "0.00";
+
+                document.getElementById('stat-val-weight').innerText = `${weight.toFixed(1)} г`;
+                document.getElementById('stat-val-thrust').innerText = `${finalThrust.toFixed(1)} г`;
+                document.getElementById('stat-val-twr').innerText = `${twr}:1`;
+                document.getElementById('stat-val-hp').innerText = `${durability} HP`;
+                document.getElementById('stat-val-cam').innerText = `${camScore} / 10`;
+                document.getElementById('stat-price').innerText = `$${price.toFixed(2)}`;
+
+                // Выставляем длину полосок на основе хардкодных "максималок" для игры
+                const maxWeight = 2000, maxThrust = 8000, maxTwr = 10, maxHp = 200, maxCam = 10;
+
+                document.getElementById('bar-weight').style.width = `${Math.min(100, (weight / maxWeight) * 100)}%`;
+                document.getElementById('bar-thrust').style.width = `${Math.min(100, (finalThrust / maxThrust) * 100)}%`;
+                document.getElementById('bar-twr').style.width = `${Math.min(100, (twr / maxTwr) * 100)}%`;
+                document.getElementById('bar-hp').style.width = `${Math.min(100, (durability / maxHp) * 100)}%`;
+                document.getElementById('bar-cam').style.width = `${(camScore / maxCam) * 100}%`;
+
+                // Если TWR хорош (>3) — красим в зеленый
+                document.getElementById('bar-twr').className = twr >= 3.0 ? "h-full bg-primary stat-bar-fill rounded-full" : "h-full bg-yellow-500 stat-bar-fill rounded-full";
+            }
+
+
+            // --- 7. БАЗА ДАННЫХ: СОХРАНЕНИЕ И ПОДЕЛИТЬСЯ ---
+
+            // Сохранение сборки
+            document.getElementById('btn-save').addEventListener('click', async () => {
+                if (!currentUserDbId) {
+                    window.showToast("Для сохранения сборки необходимо войти в аккаунт!");
+                    openModal();
+                    return;
+                }
+                if (Object.keys(currentBuild).length === 0) return window.showToast("Сборка пуста!");
+
+                const buildName = document.getElementById('build-name-input').value.trim() || "Мой Дрон";
+                const isUpdating = currentBuildId !== null;
+                const newId = isUpdating ? currentBuildId : Math.floor(Math.random() * 900000000) + 100000000;
+
+                // Подготовка данных для отправки
+                const payload = {
+                    user_assembly_id: newId, user_id: currentUserDbId, custom_name: buildName, is_assembled: true,
+                    frame_id: currentBuild.Frames?.id || null, motor_id: currentBuild.Motors?.id || null, prop_id: currentBuild.Propellers?.id || null,
+                    fc_id: currentBuild.FlightControllers?.id || null, esc_id: currentBuild.ESCs?.id || null, pdb_id: currentBuild.PDBs?.id || null,
+                    rx_id: currentBuild.Receivers?.id || null, battery_id: currentBuild.Batteries?.id || null, camera_id: currentBuild.Cameras?.id || null
+                };
+
+                try {
+                    if (isUpdating) {
+                        await supabase.from('user_assemblies').update(payload).eq('user_assembly_id', newId);
+                        window.showToast("Чертеж обновлен!");
+                    } else {
+                        await supabase.from('user_assemblies').insert([payload]);
+                        currentBuildId = newId;
+                        document.getElementById('btn-save-text').innerText = "ОБНОВИТЬ";
+                        window.showToast("Чертеж сохранен в облако!");
+                    }
+                } catch (e) { window.showToast("Ошибка БД"); }
+            });
+
+            // Кнопка поделиться (генерирует URL с параметром)
+            document.getElementById('btn-share').addEventListener('click', async () => {
+                if (!currentUserDbId) { window.showToast("Сначала войдите в систему!"); openModal(); return; }
+                if (Object.keys(currentBuild).length === 0) return window.showToast("Сборка пуста!");
+
+                // Сохраняем перед генерацией ссылки, если это новый чертеж
+                if (currentBuildId === null) {
+                    document.getElementById('btn-save').click();
+                    setTimeout(() => copyLink(currentBuildId), 1500);
+                } else {
+                    copyLink(currentBuildId);
+                }
+
+                function copyLink(id) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('shared_build', id);
+                    // Трюк для копирования в буфер обмена
+                    const dummy = document.createElement('textarea');
+                    document.body.appendChild(dummy);
+                    dummy.value = url.toString();
+                    dummy.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(dummy);
+                    window.showToast("Ссылка скопирована!");
+                }
+            });
+
+            // Проверка, есть ли в ссылке параметр shared_build
+            async function checkUrlForSharedBuild() {
+                const params = new URLSearchParams(window.location.search);
+                const buildId = params.get('shared_build');
+
+                if (buildId) {
+                    try {
+                        const { data } = await supabase.from('user_assemblies').select('*').eq('user_assembly_id', buildId).single();
+                        if (data) {
+                            // Собираем объект из базы по ID деталей
+                            const buildObj = {};
+                            if (data.frame_id) buildObj.Frames = dbParts.Frames.find(x => x.id === data.frame_id);
+                            if (data.motor_id) buildObj.Motors = dbParts.Motors.find(x => x.id === data.motor_id);
+                            if (data.prop_id) buildObj.Propellers = dbParts.Propellers.find(x => x.id === data.prop_id);
+                            if (data.fc_id) buildObj.FlightControllers = dbParts.FlightControllers.find(x => x.id === data.fc_id);
+                            if (data.esc_id) buildObj.ESCs = dbParts.ESCs.find(x => x.id === data.esc_id);
+                            if (data.pdb_id) buildObj.PDBs = dbParts.PDBs.find(x => x.id === data.pdb_id);
+                            if (data.rx_id) buildObj.Receivers = dbParts.Receivers.find(x => x.id === data.rx_id);
+                            if (data.battery_id) buildObj.Batteries = dbParts.Batteries.find(x => x.id === data.battery_id);
+                            if (data.camera_id) buildObj.Cameras = dbParts.Cameras.find(x => x.id === data.camera_id);
+
+                            // Открываем как копию (без ID)
+                            window.openBuilder(buildObj, null, data.custom_name + " (Копия)");
+                            window.showToast("Загружен чертеж по ссылке!");
+                            // Убираем параметр из URL для красоты
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
